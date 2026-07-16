@@ -286,3 +286,114 @@ base_res_dat <- base_res_dat %>%
   )
 
 write_xlsx(base_res_dat, "results/dp_MRI_NULISA_baseline.xlsx")
+
+##----------------------------------
+## Interaction with dietary intervention
+##----------------------------------
+
+base_intergroup_res_list <- list()
+i <- 1
+
+for (prot in prot_analysis_list) {
+  
+  message(prot)
+  
+  for (mri in mri_analysis_list) {
+    
+    tmp_data <- baseline_data_list[["age_ge_50"]][["all"]]
+    
+    tmp_covar <- c("age_baseline", "gender", "HOMAIR_0")
+    
+    prot_z <- paste0(prot, "_z")
+    
+    tmp_mod <- tryCatch(
+      glm(
+        as.formula(
+          paste(
+            mri,
+            " ~ ",
+            paste(c(paste0(prot_z, "*group"), tmp_covar), collapse = " + ")
+          )
+        ),
+        data = tmp_data
+      ),
+      error = function(e) e,
+      warning = function(w) w
+    )
+    
+    if (inherits(tmp_mod, "glm")) {
+      
+      tmp_coef <- summary(tmp_mod)$coefficients
+      
+      term_med <- paste0(prot_z, ":groupMED")
+      term_greenmed <- paste0(prot_z, ":groupGreenMED")
+      
+      if (!(term_med %in% rownames(tmp_coef))) {
+        term_med <- paste0("groupMED:", prot_z)
+      }
+      
+      if (!(term_greenmed %in% rownames(tmp_coef))) {
+        term_greenmed <- paste0("groupGreenMED:", prot_z)
+      }
+      
+      base_intergroup_res_list[[i]] <- c(
+        prot,
+        "scaled",
+        mri,
+        "age_ge_50",
+        "all",
+        nobs(tmp_mod),
+        tmp_coef[term_med, c(1, 2, 4)],
+        tmp_coef[term_greenmed, c(1, 2, 4)]
+      )
+      
+    } else {
+      
+      base_intergroup_res_list[[i]] <- c(
+        prot,
+        "scaled",
+        mri,
+        "age_ge_50",
+        "all",
+        tmp_mod$message,
+        rep(NA, 6)
+      )
+    }
+    
+    i <- i + 1
+  }
+}
+
+base_intergroup_res_dat <- as.data.frame(do.call("rbind", base_intergroup_res_list))
+
+colnames(base_intergroup_res_dat) <- c(
+  "targetName",
+  "scale",
+  "MRI",
+  "age_group",
+  "gender_group",
+  "n",
+  "beta_inter_groupMED",
+  "se_inter_groupMED",
+  "p_inter_groupMED",
+  "beta_inter_groupGreenMED",
+  "se_inter_groupGreenMED",
+  "p_inter_groupGreenMED"
+)
+
+base_intergroup_res_dat <- base_intergroup_res_dat %>% 
+  left_join(marker_dict, by = "targetName") %>% 
+  mutate(
+    n = as.numeric(n),
+    beta_inter_groupMED = as.numeric(beta_inter_groupMED),
+    se_inter_groupMED = as.numeric(se_inter_groupMED),
+    p_inter_groupMED = as.numeric(p_inter_groupMED),
+    beta_inter_groupGreenMED = as.numeric(beta_inter_groupGreenMED),
+    se_inter_groupGreenMED = as.numeric(se_inter_groupGreenMED),
+    p_inter_groupGreenMED = as.numeric(p_inter_groupGreenMED)
+  )
+
+write_xlsx(
+  base_intergroup_res_dat,
+  "results/dp_MRI_NULISA_baseline_inter_intervention.xlsx"
+)
