@@ -165,7 +165,7 @@ source_data_fig2a <- fig_dat %>%
     p_value = p,
     fdr = fdr
   ) %>%
-  arrange(desc(neg_log10_p), target_name_anno)
+  arrange(desc(p_value), target_name_anno)
 
 write_xlsx(
   list(source_data_fig2a = source_data_fig2a),
@@ -261,15 +261,18 @@ plot_dat <- pros_dat %>%
     neglog10_pcaco = ifelse(!is.na(p_caco) & p_caco > 0, -log10(p_caco), NA_real_)
   )
 
-x_lim <- range(plot_dat$beta_pros, na.rm = TRUE)
-y_lim <- range(plot_dat$beta_caco, na.rm = TRUE)
-lim_all <- range(c(x_lim, y_lim), na.rm = TRUE)
-
-label_data <- plot_dat %>% filter(p_pros < 0.05)
-
 ##-----------------------
 ## Plot
 ##-----------------------
+
+x_lim <- range(plot_dat$beta_pros, na.rm = TRUE)
+y_lim <- range(plot_dat$beta_caco, na.rm = TRUE)
+
+x_pad <- 0.08 * diff(x_lim)
+y_pad <- 0.18 * diff(y_lim)
+
+x_lim_plot <- x_lim + c(-x_pad, x_pad)
+y_lim_plot <- y_lim + c(-y_pad, y_pad)
 
 p_beta_compare <- ggplot(plot_dat, aes(x = beta_pros, y = beta_caco)) +
   geom_hline(yintercept = 0, linetype = 2, color = "gray35", linewidth = 0.45) +
@@ -285,7 +288,7 @@ p_beta_compare <- ggplot(plot_dat, aes(x = beta_pros, y = beta_caco)) +
   scale_fill_gradient(
     low  = "#7f9c6c",
     high = "#E3ECD5",
-    name = expression(-log[10](italic(P)[NHS~nested~case-control]))
+    name = expression(-log[10](italic(P)))
   ) +
   geom_text_repel(
     data = plot_dat %>% filter(p_pros < 0.05),
@@ -299,12 +302,12 @@ p_beta_compare <- ggplot(plot_dat, aes(x = beta_pros, y = beta_caco)) +
     seed = 1
   ) +
   coord_cartesian(
-    xlim = lim_all + c(-0.02, 0.02),
-    ylim = lim_all + c(-0.02, 0.02)
+    xlim = x_lim_plot,
+    ylim = y_lim_plot
   ) +
   labs(
     x = "log(hazard ratio): NHS prospective cohort",
-    y = "log(hazard ratio): NHS nested case-control"
+    y = "log(odds ratio): NHS nested case-control"
   ) +
   theme_classic(base_size = 11) +
   theme(
@@ -320,11 +323,8 @@ p_beta_compare <- ggplot(plot_dat, aes(x = beta_pros, y = beta_caco)) +
     axis.line = element_line(color = "black", linewidth = 0.25),
     axis.title = element_text(size = 11, color = "black"),
     plot.title = element_text(size = 12, color = "black"),
-    plot.subtitle = element_text(size = 10, color = "black")
-  ) +
-  coord_equal(
-    xlim = lim_all + c(-0.02, 0.02),
-    ylim = lim_all + c(-0.02, 0.02)
+    plot.subtitle = element_text(size = 10, color = "black"),
+    aspect.ratio = 1
   )
 
 ggsave(
@@ -341,7 +341,7 @@ source_data_fig2b <- plot_dat %>%
     target_name_anno = targetName_anno,
     log_hazard_ratio_NHS_prospective = beta_pros,
     p_value_NHS_prospective = p_pros,
-    log_hazard_ratio_NHS_nested_case_control = beta_caco,
+    log_odds_ratio_NHS_nested_case_control = beta_caco,
     p_value_NHS_nested_case_control = p_caco
   ) %>%
   arrange(target_name_anno)
@@ -462,7 +462,7 @@ source_data_fig2c <- fig_dat %>%
     p_value = p,
     fdr = fdr
   ) %>%
-  arrange(desc(neg_log10_p), target_name_anno)
+  arrange(desc(p_value), target_name_anno)
 
 write_xlsx(
   list(source_data_fig2c = source_data_fig2c),
@@ -475,10 +475,13 @@ write_xlsx(
 
 rm(list = ls())
 
+source("scripts/source_rm_markers.R")
+
 dementia_sig <- read_excel("results/nhs_dementia_NULISA.xlsx") %>%
   filter(
     scale == "scaled",
     LOD_flag != TRUE | is.na(LOD_flag),
+    !(targetName %in% ipc_bcg_fails),
     p < 0.05
   ) %>%
   pull(targetName) %>%
@@ -492,6 +495,7 @@ pros_dat <- read_excel("results/nhs_tics_NULISA.xlsx") %>%
   filter(
     scale == "scaled",
     LOD_flag != TRUE | is.na(LOD_flag),
+    !(targetName %in% ipc_bcg_fails),
     outcome == "av_ntotal"
   ) %>%
   mutate(
@@ -525,6 +529,7 @@ caco_dat <- read_excel("results/nhs_caco_tics_NULISA.xlsx") %>%
   filter(
     scale == "scaled",
     LOD_flag != TRUE | is.na(LOD_flag),
+    !(targetName %in% ipc_bcg_fails),
     outcome == "av_ntotal",
     subset == "all"
   ) %>%
@@ -567,13 +572,18 @@ plot_dat <- pros_dat %>%
     sig_dementia = targetName %in% dementia_sig
   )
 
-x_lim <- range(plot_dat$beta_pros, na.rm = TRUE)
-y_lim <- range(plot_dat$beta_caco, na.rm = TRUE)
-lim_all <- range(c(x_lim, y_lim), na.rm = TRUE)
-
 ##-----------------------
 ## Plot
 ##-----------------------
+
+x_lim <- range(plot_dat$beta_pros, na.rm = TRUE)
+y_lim <- range(plot_dat$beta_caco, na.rm = TRUE)
+
+x_pad <- 0.08 * diff(x_lim)
+y_pad <- 0.12 * diff(y_lim)
+
+x_lim_plot <- x_lim + c(-x_pad, x_pad)
+y_lim_plot <- y_lim + c(-y_pad, y_pad)
 
 p_beta_compare_tics <- ggplot(
   plot_dat,
@@ -582,8 +592,7 @@ p_beta_compare_tics <- ggplot(
   geom_hline(yintercept = 0, linetype = 2, color = "gray35", linewidth = 0.45) +
   geom_vline(xintercept = 0, linetype = 2, color = "gray35", linewidth = 0.45) +
   geom_point(
-    aes(fill = neglog10_pcaco,
-        shape = sig_dementia),
+    aes(fill = neglog10_pcaco, shape = sig_dementia),
     size = 2.6,
     stroke = 0.35,
     color = "black",
@@ -592,7 +601,7 @@ p_beta_compare_tics <- ggplot(
   scale_fill_gradient(
     low  = "#7f9c6c",
     high = "#E3ECD5",
-    name = expression(-log[10](italic(P)[NHS~nested~case-control]))
+    name = expression(-log[10](italic(P)))
   ) +
   scale_shape_manual(
     values = c(
@@ -613,8 +622,8 @@ p_beta_compare_tics <- ggplot(
     seed = 1
   ) +
   coord_cartesian(
-    xlim = lim_all + c(-0.02, 0.02),
-    ylim = lim_all + c(-0.02, 0.02)
+    xlim = x_lim_plot,
+    ylim = y_lim_plot
   ) +
   labs(
     x = expression(beta["marker"]*" NHS prospective cohort"),
@@ -634,11 +643,8 @@ p_beta_compare_tics <- ggplot(
     axis.line = element_line(color = "black", linewidth = 0.25),
     axis.title = element_text(size = 11, color = "black"),
     plot.title = element_text(size = 12, color = "black"),
-    plot.subtitle = element_text(size = 10, color = "black")
-  ) +
-  coord_equal(
-    xlim = lim_all + c(-0.02, 0.02),
-    ylim = lim_all + c(-0.02, 0.02)
+    plot.subtitle = element_text(size = 10, color = "black"),
+    aspect.ratio = 1
   )
 
 ggsave(
@@ -1135,7 +1141,7 @@ fig_dat <- read_excel("results/nhs_caco_dementia_NULISA_auc_for_fig.xlsx") %>%
            model == "m1" ~ paste0("m1: Age (AUC: ", auc_only,")"),
            model == "m2" ~ paste0("m2: + Family history \n      + Depression (AUC: ", auc_only,")"),
            model == "m3" ~ paste0("m3: + APOE4 status + ADRD PRS (AUC: ", auc_only,")"),
-           model == "m13" ~ paste0("m4: + ATX(N) (AUC: ", auc_only,")")
+           model == "m4" ~ paste0("m4: + ATX(N) (AUC: ", auc_only,")")
          ),
          model_anno = factor(model_anno, levels = unique(model_anno)))
 fig_dat$model_anno
