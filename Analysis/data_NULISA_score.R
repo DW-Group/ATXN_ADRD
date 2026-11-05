@@ -22,6 +22,7 @@ tauBD_list <- c("BD_pTau_217", "BD_pTau_231", "BD_pTau_181")
 
 n_list <- c("NEFL", "GFAP")
 x_list <- c("ICAM1", "GDF15")
+atn_list <- c("pTau_181", "Ab42_div_Ab40_log2", "NEFL", "GFAP")
 
 core_list <- list(
   "all" = list(
@@ -37,11 +38,6 @@ save(core_list, file = "data/NULISA_core.RData")
 ##-------------------------------
 ## Derive weights
 ##-------------------------------
-
-beta_vec <- nulisa_dementia_res %>%
-  select(targetName, beta) %>%
-  mutate(beta = as.numeric(beta)) %>%
-  deframe()
 
 sign_vec <- nulisa_dementia_res %>%
   transmute(
@@ -64,19 +60,14 @@ for (tau_set in names(core_list)) {
   for (set in names(core_list[[tau_set]])) {
     
     markers <- core_list[[tau_set]][[set]]
-    betas   <- beta_vec[markers]
     signs   <- sign_vec[markers]
     
     tmp <- nhs_npq_all %>%
       select(id, all_of(markers)) %>%
       mutate(across(all_of(markers), ~ as.numeric(scale(.x)))) %>%
       mutate(
-        !!paste0(tau_set, "_", set, "_ew") :=
-          rowSums(across(all_of(markers)), na.rm = TRUE),
         !!paste0(tau_set, "_", set, "_ew_signed") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% signs),
-        !!paste0(tau_set, "_", set, "_beta") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% betas)
+          as.numeric(as.matrix(across(all_of(markers))) %*% signs)
       )
     
     nhs_score_list[[i]] <- tmp %>%
@@ -108,19 +99,14 @@ for (tau_set in names(core_list)) {
   for (set in names(core_list[[tau_set]])) {
     
     markers <- core_list[[tau_set]][[set]]
-    betas   <- beta_vec[markers]
     signs   <- sign_vec[markers]
     
     tmp <- nhs_npq_all %>%
       select(id, all_of(markers)) %>%
       mutate(across(all_of(markers), ~ as.numeric(scale(.x)))) %>%
       mutate(
-        !!paste0(tau_set, "_", set, "_ew") :=
-          rowSums(across(all_of(markers)), na.rm = TRUE),
         !!paste0(tau_set, "_", set, "_ew_signed") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% signs),
-        !!paste0(tau_set, "_", set, "_beta") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% betas)
+          as.numeric(as.matrix(across(all_of(markers))) %*% signs)
       )
     
     nhs_score_list[[i]] <- tmp %>%
@@ -152,19 +138,14 @@ for (tau_set in names(core_list)) {
   for (set in names(core_list[[tau_set]])) {
     
     markers <- core_list[[tau_set]][[set]]
-    betas   <- beta_vec[markers]
     signs   <- sign_vec[markers]
     
     tmp <- nhs_npq_all %>%
       select(id, all_of(markers)) %>%
       mutate(across(all_of(markers), ~ as.numeric(scale(.x)))) %>%
       mutate(
-        !!paste0(tau_set, "_", set, "_ew") :=
-          rowSums(across(all_of(markers)), na.rm = TRUE),
         !!paste0(tau_set, "_", set, "_ew_signed") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% signs),
-        !!paste0(tau_set, "_", set, "_beta") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% betas)
+          as.numeric(as.matrix(across(all_of(markers))) %*% signs)
       )
     
     nhs_score_list[[i]] <- tmp %>%
@@ -196,19 +177,14 @@ for (tau_set in names(core_list)) {
   for (set in names(core_list[[tau_set]])) {
     
     markers <- core_list[[tau_set]][[set]]
-    betas   <- beta_vec[markers]
     signs   <- sign_vec[markers]
     
     tmp <- dp_npq_all %>%
       select(tsno, all_of(markers)) %>%
       mutate(across(all_of(markers), ~ as.numeric(scale(.x)))) %>%
       mutate(
-        !!paste0(tau_set, "_", set, "_ew") :=
-          rowSums(across(all_of(markers)), na.rm = TRUE),
         !!paste0(tau_set, "_", set, "_ew_signed") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% signs),
-        !!paste0(tau_set, "_", set, "_beta") :=
-          as.numeric(as.matrix(across(all_of(markers))) %*% betas)
+          as.numeric(as.matrix(across(all_of(markers))) %*% signs)
       )
     
     dp_score_list[[i]] <- tmp %>%
@@ -223,5 +199,46 @@ dp_score_dat <- Reduce(function(x, y) full_join(x, y, by = "tsno"), dp_score_lis
 write.csv(
   dp_score_dat,
   "data/data_NULISA_dp_score.csv",
+  row.names = FALSE
+)
+
+### AT(N) score
+
+markers <- atn_list
+signs   <- sign_vec[markers]
+
+dp_atn_score <- dp_npq_all %>%
+  select(
+    tsno,
+    all_of(markers)
+  ) %>%
+  mutate(
+    across(
+      all_of(markers),
+      ~ as.numeric(scale(.x))
+    )
+  ) %>%
+  mutate(
+    atn_ew_signed =
+      as.numeric(
+        as.matrix(
+          across(all_of(markers))
+        ) %*% signs
+      )
+  ) %>%
+  select(
+    tsno,
+    atn_ew_signed
+  )
+
+dp_score_dat <- dp_score_dat %>%
+  left_join(
+    dp_atn_score,
+    by = "tsno"
+  )
+
+write.csv(
+  dp_score_dat,
+  "data/data_NULISA_dp_score_add_atn.csv",
   row.names = FALSE
 )
