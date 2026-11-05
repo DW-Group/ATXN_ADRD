@@ -2258,3 +2258,346 @@ write_xlsx(
   ),
   "results/source_data/source_data_extended_data_fig4b.xlsx"
 )
+
+##---------------------------------------------------------
+## Exd Data Fig 5
+##---------------------------------------------------------
+
+##------------------
+## 5a
+##------------------
+
+rm(list = ls())
+
+res <- read_excel("results/mind_mri_res.xlsx")
+
+marker_order <- c(
+  "pTau-181",
+  "Abeta42/Abeta40",
+  "NfL",
+  "GFAP"
+)
+
+plot_dat <- res %>%
+  filter(
+    marker %in% c(
+      "z_atn_ew_signed",
+      "z_ptau181_log",
+      "z_ab42_40_raw",
+      "z_nfl_log",
+      "z_gfap_log"
+    ),
+    outcome == "hippo_change"
+  ) %>%
+  mutate(
+    marker_anno = case_when(
+      marker == "z_atn_ew_signed" ~ "AT(N) score",
+      marker == "z_ptau181_log"   ~ "pTau-181",
+      marker == "z_ab42_40_raw"   ~ "Abeta42/Abeta40",
+      marker == "z_nfl_log"       ~ "NfL",
+      marker == "z_gfap_log"      ~ "GFAP"
+    )
+  )
+
+long_dat <- bind_rows(
+  plot_dat %>%
+    transmute(
+      marker,
+      marker_anno,
+      p_int = as.numeric(p_int),
+      group = group1,
+      beta = as.numeric(beta_group1),
+      se = as.numeric(se_group1),
+      p = as.numeric(p_group1)
+    ),
+  plot_dat %>%
+    transmute(
+      marker,
+      marker_anno,
+      p_int = as.numeric(p_int),
+      group = group2,
+      beta = as.numeric(beta_group2),
+      se = as.numeric(se_group2),
+      p = as.numeric(p_group2)
+    )
+) %>%
+  mutate(
+    lower = beta - 1.96 * se,
+    upper = beta + 1.96 * se,
+    neglog10_p = -log10(p),
+    group = factor(
+      group,
+      levels = c("Control Diet Group", "MIND Diet Group"),
+      labels = c("Control", "MIND")
+    )
+  )
+
+forest_dat <- long_dat %>%
+  filter(marker == "z_atn_ew_signed")
+
+p_int_atn <- forest_dat %>%
+  distinct(p_int) %>%
+  pull(p_int) %>%
+  first()
+
+p_int_lab <- ifelse(
+  p_int_atn < 0.001,
+  "Pinteraction < 0.001",
+  paste0("Pinteraction = ", sprintf("%.2f", p_int_atn))
+)
+
+p_forest1 <- ggplot(
+  forest_dat,
+  aes(
+    y = group,
+    x = beta,
+    xmin = lower,
+    xmax = upper
+  )
+) +
+  geom_vline(
+    xintercept = 0,
+    color = "gray31",
+    linetype = "dashed",
+    alpha = 0.5,
+    linewidth = 0.5
+  ) +
+  geom_errorbarh(
+    linewidth = 0.3,
+    height = 0.45,
+    color = "black"
+  ) +
+  geom_point(
+    aes(fill = neglog10_p),
+    shape = 21,
+    size = 3,
+    stroke = 0.3,
+    color = "black"
+  ) +
+  scale_fill_gradient(
+    low = "#334f24",
+    high = "#E3ECD5",
+    name = expression(-log[10](italic(P)))
+  ) +
+  scale_y_discrete(limits = rev) +
+  labs(
+    x = expression(beta["AT(N) score"]),
+    y = NULL,
+    subtitle = p_int_lab
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(size = 10, color = "black"),
+    axis.text.x = element_text(size = 9, color = "black"),
+    axis.text.y = element_text(size = 9, color = "black"),
+    axis.line.x = element_blank(),
+    axis.line.y = element_blank(),
+    axis.ticks = element_line(color = "black", linewidth = 0.5),
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
+    legend.position = "none",
+    plot.subtitle = element_text(size = 8.5, color = "black", hjust = 0),
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+heatmap_dat <- long_dat %>%
+  filter(marker != "z_atn_ew_signed") %>%
+  mutate(
+    marker_anno = factor(marker_anno, levels = marker_order),
+    sig = case_when(
+      p < 0.01 ~ "#",
+      p < 0.05 ~ "+",
+      TRUE ~ ""
+    )
+  )
+
+heatmap_lim <- max(abs(heatmap_dat$beta), na.rm = TRUE)
+
+p_heatmap1 <- ggplot(
+  heatmap_dat,
+  aes(x = marker_anno, y = group)
+) +
+  geom_tile(aes(fill = beta), color = "gray31", linewidth = 0.3) +
+  geom_text(aes(label = sig), color = "black", size = 5) +
+  scale_x_discrete(
+    position = "top",
+    labels = c(
+      "pTau-181" = "pTau-181",
+      "Abeta42/Abeta40" = expression(A * beta * "42" / A * beta * "40"),
+      "NfL" = "NfL",
+      "GFAP" = "GFAP"
+    )
+  ) +
+  scale_y_discrete(limits = rev, expand = c(0, 0)) +
+  scale_fill_gradient2(
+    low = "#7EA6C7",
+    mid = "white",
+    high = "#E09A5C",
+    midpoint = 0,
+    limits = c(-heatmap_lim, heatmap_lim),
+    name = expression(beta["marker"])
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 0,
+      vjust = 0,
+      color = "black",
+      size = 9
+    ),
+    axis.text.y = element_blank(),
+    axis.ticks = element_line(color = "black"),
+    axis.title = element_blank(),
+    legend.position = "right",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 8),
+    legend.key.size = unit(4, "mm"),
+    panel.border = element_blank(),
+    axis.ticks.length = unit(0, "pt"),
+    plot.margin = margin(0, 0, 0, 0)
+  ) +
+  coord_fixed(ratio = 1)
+
+p_final <- (p_forest1 | p_heatmap1) +
+  plot_layout(widths = c(0.9, 1.6)) +
+  plot_annotation(
+    title = "Change in hippocampal volume",
+    theme = theme(
+      plot.title = element_text(size = 10, face = "plain", hjust = 0)
+    )
+  )
+
+ggsave(
+  "results/figures/exd_fig5a_MIND_MRI.pdf",
+  p_final,
+  width = 6,
+  height = 2.2
+)
+
+p_forest_bar <- p_forest1 +
+  guides(
+    fill = guide_colorbar(
+      direction = "vertical",
+      barheight = unit(2.5, "cm"),
+      barwidth = unit(0.4, "cm")
+    )
+  ) +
+  theme(
+    legend.position = "right",
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+forest_bar <- cowplot::get_legend(p_forest_bar)
+
+ggsave(
+  "results/figures/exd_fig5a_MIND_MRI_forest_legend.pdf",
+  cowplot::ggdraw(forest_bar),
+  width = 2,
+  height = 2.5
+)
+
+p_heatmap_bar <- p_heatmap1 +
+  guides(
+    fill = guide_colorbar(
+      direction = "horizontal",
+      title.position = "left",
+      title.vjust = 0.5,
+      barheight = unit(0.4, "cm"),
+      barwidth = unit(2.5, "cm")
+    )
+  ) +
+  theme(
+    legend.position = "bottom",
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+heatmap_bar <- cowplot::get_legend(p_heatmap_bar)
+
+ggsave(
+  "results/figures/exd_fig5a_MIND_MRI_heatmap_legend.pdf",
+  cowplot::ggdraw(heatmap_bar),
+  width = 2,
+  height = 2
+)
+
+### Source data
+
+## 5a
+
+source_data_ext5a_forest <- forest_dat %>%
+  transmute(
+    intervention_group = as.character(group),
+    beta,
+    lower_95CI = lower,
+    upper_95CI = upper,
+    p_value = p,
+    p_for_interaction = p_int
+  )
+
+source_data_ext5a_heatmap <- heatmap_dat %>%
+  transmute(
+    intervention_group = as.character(group),
+    biomarker = as.character(marker_anno),
+    beta,
+    p_value = p
+  )
+
+write_xlsx(
+  list(
+    ext5a_forest = source_data_ext5a_forest,
+    ext5a_heatmap = source_data_ext5a_heatmap
+  ),
+  "results/source_data/source_data_extended_data_fig5a.xlsx"
+)
+
+## 5b
+
+source_data_ext5b_points <- fig_data_change %>%
+  transmute(
+    ATN_score_tertile = as.character(z_atn_ew_signed_t),
+    intervention_group = as.character(assignment),
+    hippocampal_volume_change = mri_change
+  )
+
+source_data_ext5b_comparisons <- change_comparison %>%
+  transmute(
+    ATN_score_tertile = as.character(z_atn_ew_signed_t),
+    delta_median = difference,
+    p_value = p
+  )
+
+write_xlsx(
+  list(
+    ext5b_points = source_data_ext5b_points,
+    ext5b_comparisons = source_data_ext5b_comparisons
+  ),
+  "results/source_data/source_data_extended_data_fig5b.xlsx"
+)
+
+## 5c
+
+source_data_ext5c_points <- fig_data_change %>%
+  transmute(
+    ATN_score_tertile = as.character(atn_ew_signed_t),
+    intervention_group = as.character(group),
+    HOC_change = mri_change
+  )
+
+source_data_ext5c_comparisons <- change_comparison %>%
+  transmute(
+    ATN_score_tertile = as.character(atn_ew_signed_t),
+    comparison,
+    delta_median = difference,
+    p_value = p
+  )
+
+write_xlsx(
+  list(
+    ext5c_points = source_data_ext5c_points,
+    ext5c_comparisons = source_data_ext5c_comparisons
+  ),
+  "results/source_data/source_data_extended_data_fig5c.xlsx"
+)

@@ -665,8 +665,14 @@ source_data_fig4c_points <- merge_mind_dat %>%
   transmute(
     target = as.character(targetName_anno),
     beta_MIND_NHS = beta_nhs,
-    p_value_NHS = p_nhs,
+    se_MIND_NHS = se_nhs,
+    lower_95_CI_NHS = lcl_nhs,
+    upper_95_CI_NHS = ucl_nhs,
+    p_value_NHS = p_nhs,    
     beta_MIND_DIRECT_PLUS = beta_dp,
+    se_MIND_DIRECT_PLUS = se_dp,
+    lower_95_CI_DIRECT_PLUS = lcl_dp,
+    upper_95_CI_DIRECT_PLUS = ucl_dp,
     p_value_DIRECT_PLUS = p_dp,
     neg_log10_p_DIRECT_PLUS = neglog10_pdp
   ) %>%
